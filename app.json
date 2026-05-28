@@ -1,24 +1,40 @@
 {
   "expo": {
-    "name": "moodflow-app",
+    "name": "MoodFlow",
     "slug": "moodflow-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#0a0a0f"
+    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.moodflow.app",
+      "infoPlist": {
+        "UIBackgroundModes": ["audio"]
+      }
     },
     "android": {
+      "package": "com.moodflow.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0a0a0f",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       }
     },
     "web": {
-      "favicon": "./assets/favicon.png"
-    }
+      "favicon": "./assets/favicon.png",
+      "name": "MoodFlow",
+      "shortName": "MoodFlow",
+      "description": "Mood-driven background music for focus, flow, and feeling.",
+      "themeColor": "#0a0a0f",
+      "backgroundColor": "#0a0a0f"
+    },
+    "plugins": [
+      "expo-font"
+    ]
   }
 }
