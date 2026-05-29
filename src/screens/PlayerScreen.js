@@ -1,3 +1,6 @@
+// ─── PlayerScreen v2 ────────────────────────────────────────────────
+// Immersive full-screen mood space — cinematic orb, ambient gradient
+
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
@@ -10,57 +13,90 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
+import {
+  COLORS,
+  MOOD_ACCENTS,
+  SPACING,
+  TYPE,
+  RADIUS,
+  SHADOWS,
+  TIMING,
+} from '../constants/theme';
 import { useMood } from '../context/MoodContext';
 import { useAudio } from '../context/AudioContext';
 import IntensitySlider from '../components/IntensitySlider';
 import PlayerControls from '../components/PlayerControls';
 import TimerPicker from '../components/TimerPicker';
 
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const ORB_SIZE = Math.min(SCREEN_WIDTH * 0.4, 180);
+
 export default function PlayerScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { state, dispatch } = useMood();
   const { loadMood, play, pause, stop } = useAudio();
   const [showTimer, setShowTimer] = useState(false);
+
+  // Animations
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
+  const breatheAnim = useRef(new Animated.Value(0.3)).current;
 
-  // Pulsing animation for the mood orb
+  // Breathing glow animation
   useEffect(() => {
     if (state.isPlaying) {
       const pulse = Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
-            toValue: 1.08,
-            duration: 3000,
+            toValue: 1.06,
+            duration: TIMING.breathe,
             useNativeDriver: true,
           }),
           Animated.timing(pulseAnim, {
             toValue: 1,
-            duration: 3000,
+            duration: TIMING.breathe,
             useNativeDriver: true,
           }),
-        ])
+        ]),
+      );
+      const breathe = Animated.loop(
+        Animated.sequence([
+          Animated.timing(breatheAnim, {
+            toValue: 0.6,
+            duration: TIMING.breathe,
+            useNativeDriver: true,
+          }),
+          Animated.timing(breatheAnim, {
+            toValue: 0.3,
+            duration: TIMING.breathe,
+            useNativeDriver: true,
+          }),
+        ]),
       );
       pulse.start();
-      return () => pulse.stop();
+      breathe.start();
+      return () => {
+        pulse.stop();
+        breathe.stop();
+      };
     } else {
       pulseAnim.setValue(1);
+      breatheAnim.setValue(0.3);
     }
-  }, [state.isPlaying]);
+  }, [state.isPlaying, pulseAnim, breatheAnim]);
 
-  // Slow rotation for the background rings
+  // Slow rotation
   useEffect(() => {
     const rotation = Animated.loop(
       Animated.timing(rotateAnim, {
         toValue: 1,
-        duration: 30000,
+        duration: 40000,
         useNativeDriver: true,
-      })
+      }),
     );
     rotation.start();
     return () => rotation.stop();
-  }, []);
+  }, [rotateAnim]);
 
   const handleTogglePlay = useCallback(async () => {
     const wasPlaying = state.isPlaying;
@@ -74,7 +110,11 @@ export default function PlayerScreen({ navigation }) {
   }, [state.isPlaying, dispatch, play, pause]);
 
   const handleStop = useCallback(async () => {
-    try { await stop(); } catch (e) { console.warn('Audio stop error:', e); }
+    try {
+      await stop();
+    } catch (e) {
+      console.warn('Audio stop error:', e);
+    }
     dispatch({ type: 'END_SESSION' });
     navigation.goBack();
   }, [stop, dispatch, navigation]);
@@ -83,16 +123,26 @@ export default function PlayerScreen({ navigation }) {
     navigation.goBack();
   }, [navigation]);
 
-  const handleIntensityChange = useCallback(async (value) => {
-    dispatch({ type: 'SET_INTENSITY', payload: value });
-    if (state.currentMood) {
-      try { await loadMood(state.currentMood.id, value); } catch (e) { /* silent */ }
-    }
-  }, [state.currentMood, loadMood, dispatch]);
+  const handleIntensityChange = useCallback(
+    async (value) => {
+      dispatch({ type: 'SET_INTENSITY', payload: value });
+      if (state.currentMood) {
+        try {
+          await loadMood(state.currentMood.id, value);
+        } catch (e) {
+          /* silent */
+        }
+      }
+    },
+    [state.currentMood, loadMood, dispatch],
+  );
 
-  const handleTimerSelect = useCallback((minutes) => {
-    dispatch({ type: 'SET_TIMER', payload: minutes });
-  }, [dispatch]);
+  const handleTimerSelect = useCallback(
+    (minutes) => {
+      dispatch({ type: 'SET_TIMER', payload: minutes });
+    },
+    [dispatch],
+  );
 
   const handleToggleFocusLock = useCallback(() => {
     dispatch({ type: 'TOGGLE_FOCUS_LOCK' });
@@ -100,14 +150,15 @@ export default function PlayerScreen({ navigation }) {
 
   const mood = state.currentMood;
 
+  // Empty state
   if (!mood) {
     return (
       <View style={[styles.emptyContainer, { paddingTop: insets.top }]}>
         <LinearGradient
-          colors={[COLORS.background, COLORS.surface]}
+          colors={[COLORS.bg, COLORS.bgElevated]}
           style={StyleSheet.absoluteFill}
         />
-        <Ionicons name="musical-notes-outline" size={64} color={COLORS.textTertiary} />
+        <Ionicons name="musical-notes-outline" size={48} color={COLORS.textGhost} />
         <Text style={styles.emptyTitle}>No mood selected</Text>
         <Text style={styles.emptySubtitle}>Go back and tap a mood to begin</Text>
         <TouchableOpacity
@@ -121,6 +172,7 @@ export default function PlayerScreen({ navigation }) {
     );
   }
 
+  const accent = MOOD_ACCENTS[mood.id] || MOOD_ACCENTS.calm;
   const spin = rotateAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
@@ -128,8 +180,9 @@ export default function PlayerScreen({ navigation }) {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Ambient background gradient */}
       <LinearGradient
-        colors={[mood.colors[0], COLORS.background, COLORS.background]}
+        colors={accent.gradient}
         locations={[0, 0.5, 1]}
         style={StyleSheet.absoluteFill}
       />
@@ -139,72 +192,91 @@ export default function PlayerScreen({ navigation }) {
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() => navigation.goBack()}
-            style={styles.backButton}
-            activeOpacity={0.7}
+            style={styles.headerBtn}
+            activeOpacity={0.6}
           >
-            <Ionicons name="chevron-down" size={28} color={COLORS.textSecondary} />
+            <Ionicons name="chevron-down" size={24} color={COLORS.textSecondary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Now Playing</Text>
+          <Text style={styles.headerTitle}>NOW PLAYING</Text>
           <TouchableOpacity
             onPress={() => setShowTimer(true)}
-            style={styles.timerBtn}
-            activeOpacity={0.7}
+            style={styles.headerBtn}
+            activeOpacity={0.6}
           >
             <Ionicons
               name="timer-outline"
-              size={22}
-              color={state.timerDuration ? COLORS.accent : COLORS.textSecondary}
+              size={20}
+              color={state.timerDuration ? accent.accent : COLORS.textSecondary}
             />
           </TouchableOpacity>
         </View>
       )}
 
-      {/* Mood Orb */}
+      {/* Orb area */}
       <View style={styles.orbContainer}>
+        {/* Outer breathing ring */}
         <Animated.View
           style={[
             styles.orbRingOuter,
             {
-              borderColor: mood.accentColor + '15',
+              borderColor: accent.accent + '10',
               transform: [{ rotate: spin }, { scale: pulseAnim }],
             },
           ]}
         />
+        {/* Middle ring */}
         <Animated.View
           style={[
             styles.orbRingMiddle,
             {
-              borderColor: mood.accentColor + '25',
+              borderColor: accent.accent + '18',
               transform: [{ rotate: spin }, { scale: pulseAnim }],
             },
           ]}
         />
-        <Animated.View style={[styles.orb, { transform: [{ scale: pulseAnim }] }]}>
+        {/* Core orb */}
+        <Animated.View
+          style={[
+            styles.orb,
+            SHADOWS.glow(accent.accent),
+            { transform: [{ scale: pulseAnim }] },
+          ]}
+        >
           <LinearGradient
-            colors={mood.colors}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+            colors={[accent.accent + '40', accent.accent + '15', accent.accent + '05']}
+            start={{ x: 0.3, y: 0 }}
+            end={{ x: 0.7, y: 1 }}
             style={styles.orbGradient}
           >
-            <Text style={styles.orbEmoji}>{mood.emoji}</Text>
+            {/* Accent core dot */}
+            <Animated.View
+              style={[
+                styles.orbCore,
+                {
+                  backgroundColor: accent.accent,
+                  opacity: breatheAnim,
+                },
+              ]}
+            />
           </LinearGradient>
         </Animated.View>
 
-        <Text style={styles.moodName}>{mood.label}</Text>
+        {/* Mood info */}
+        <Text style={[styles.moodName, { color: accent.accent }]}>{mood.label}</Text>
         <Text style={styles.moodGenre}>{mood.genre}</Text>
         <Text style={styles.moodDescription}>{mood.description}</Text>
       </View>
 
-      {/* Intensity Slider */}
+      {/* Intensity */}
       {!state.focusLock && (
         <IntensitySlider
           value={state.intensity}
           onValueChange={handleIntensityChange}
-          accentColor={mood.accentColor}
+          accentColor={accent.accent}
         />
       )}
 
-      {/* Player Controls */}
+      {/* Controls */}
       <PlayerControls
         mood={mood}
         isPlaying={state.isPlaying}
@@ -222,6 +294,7 @@ export default function PlayerScreen({ navigation }) {
         onClose={() => setShowTimer(false)}
         onSelect={handleTimerSelect}
         currentValue={state.timerDuration}
+        accentColor={accent.accent}
       />
     </View>
   );
@@ -230,35 +303,36 @@ export default function PlayerScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: COLORS.bg,
   },
   emptyContainer: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: COLORS.bg,
     alignItems: 'center',
     justifyContent: 'center',
     gap: SPACING.md,
   },
   emptyTitle: {
     color: COLORS.textPrimary,
-    fontSize: FONT_SIZE.xl,
-    fontWeight: '700',
+    ...TYPE.h2,
   },
   emptySubtitle: {
-    color: COLORS.textTertiary,
-    fontSize: FONT_SIZE.md,
+    color: COLORS.textMuted,
+    ...TYPE.body,
   },
   goBackButton: {
     marginTop: SPACING.md,
-    backgroundColor: COLORS.accent,
+    backgroundColor: COLORS.bgCard,
     paddingHorizontal: SPACING.xl,
-    paddingVertical: SPACING.md,
-    borderRadius: BORDER_RADIUS.round,
+    paddingVertical: SPACING.sm + 2,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: COLORS.borderAccent,
   },
   goBackText: {
-    color: '#fff',
-    fontSize: FONT_SIZE.md,
-    fontWeight: '600',
+    color: COLORS.textPrimary,
+    ...TYPE.body,
+    fontWeight: '500',
   },
   header: {
     flexDirection: 'row',
@@ -267,75 +341,67 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
   },
-  backButton: {
+  headerBtn: {
     width: 44,
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
-    color: COLORS.textSecondary,
-    fontSize: FONT_SIZE.sm,
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
-  },
-  timerBtn: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
+    color: COLORS.textMuted,
+    ...TYPE.label,
   },
   orbContainer: {
     alignItems: 'center',
-    paddingVertical: SPACING.xl,
+    paddingVertical: SPACING.lg,
     flex: 1,
     justifyContent: 'center',
   },
   orbRingOuter: {
     position: 'absolute',
-    width: 240,
-    height: 240,
-    borderRadius: 120,
+    width: ORB_SIZE + 80,
+    height: ORB_SIZE + 80,
+    borderRadius: (ORB_SIZE + 80) / 2,
     borderWidth: 1,
   },
   orbRingMiddle: {
     position: 'absolute',
-    width: 200,
-    height: 200,
-    borderRadius: 100,
+    width: ORB_SIZE + 40,
+    height: ORB_SIZE + 40,
+    borderRadius: (ORB_SIZE + 40) / 2,
     borderWidth: 1,
   },
   orb: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
+    width: ORB_SIZE,
+    height: ORB_SIZE,
+    borderRadius: ORB_SIZE / 2,
     overflow: 'hidden',
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.xl,
   },
   orbGradient: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  orbEmoji: {
-    fontSize: 64,
+  orbCore: {
+    width: ORB_SIZE * 0.25,
+    height: ORB_SIZE * 0.25,
+    borderRadius: ORB_SIZE * 0.125,
   },
   moodName: {
-    color: COLORS.textPrimary,
-    fontSize: FONT_SIZE.xxl,
-    fontWeight: '800',
+    ...TYPE.h1,
   },
   moodGenre: {
     color: COLORS.textSecondary,
-    fontSize: FONT_SIZE.md,
+    ...TYPE.bodySm,
     marginTop: SPACING.xs,
   },
   moodDescription: {
-    color: COLORS.textTertiary,
-    fontSize: FONT_SIZE.sm,
+    color: COLORS.textMuted,
+    ...TYPE.bodySm,
     textAlign: 'center',
     marginTop: SPACING.sm,
-    marginHorizontal: SPACING.xl,
+    marginHorizontal: SPACING['2xl'],
     lineHeight: 20,
   },
 });

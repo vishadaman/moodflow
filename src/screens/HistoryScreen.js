@@ -1,16 +1,19 @@
-import React, { useMemo } from 'react';
+// ─── HistoryScreen v2 ───────────────────────────────────────────────
+// Clean, atmospheric history view with mood-accent distribution bars
+
+import React, { useMemo, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS, SHADOWS } from '../constants/theme';
+import { COLORS, MOOD_ACCENTS, SPACING, TYPE, RADIUS, SHADOWS } from '../constants/theme';
 import { useMood } from '../context/MoodContext';
+import { useAudio } from '../context/AudioContext';
 import { getMoodById, MOODS } from '../constants/moods';
 import {
   formatDuration,
@@ -25,6 +28,7 @@ import MiniPlayer from '../components/MiniPlayer';
 export default function HistoryScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { state, dispatch } = useMood();
+  const { play, pause } = useAudio();
 
   const stats = useMemo(() => {
     const history = state.history;
@@ -37,9 +41,11 @@ export default function HistoryScreen({ navigation }) {
     };
   }, [state.history]);
 
-  const mostUsedMood = stats.mostUsedMoodId ? getMoodById(stats.mostUsedMoodId) : null;
+  const mostUsedMood = stats.mostUsedMoodId
+    ? getMoodById(stats.mostUsedMoodId)
+    : null;
 
-  // Mood distribution for bar chart
+  // Mood distribution
   const moodDistribution = useMemo(() => {
     const counts = {};
     state.history.forEach((h) => {
@@ -53,16 +59,16 @@ export default function HistoryScreen({ navigation }) {
     })).filter((d) => d.count > 0);
   }, [state.history]);
 
-  const { play, pause } = require('../context/AudioContext').useAudio();
-
-  const handleTogglePlay = async () => {
+  const handleTogglePlay = useCallback(async () => {
     const wasPlaying = state.isPlaying;
     dispatch({ type: 'TOGGLE_PLAY' });
     try {
       if (wasPlaying) await pause();
       else await play();
-    } catch (e) { /* silent */ }
-  };
+    } catch (e) {
+      /* silent */
+    }
+  }, [state.isPlaying, dispatch, play, pause]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -70,97 +76,124 @@ export default function HistoryScreen({ navigation }) {
         style={styles.scrollView}
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: state.currentMood ? 140 : 80 },
+          { paddingBottom: state.currentMood ? 150 : 90 },
         ]}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <Text style={styles.title}>Mood History</Text>
+        <Text style={styles.title}>History</Text>
         <Text style={styles.subtitle}>Your listening patterns</Text>
 
         {state.history.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="analytics-outline" size={48} color={COLORS.textTertiary} />
+            <Ionicons name="analytics-outline" size={40} color={COLORS.textGhost} />
             <Text style={styles.emptyTitle}>No sessions yet</Text>
             <Text style={styles.emptyText}>
-              Start a mood session to see your listening patterns here
+              Start a mood session to see your patterns here
             </Text>
           </View>
         ) : (
           <>
-            {/* Stats Overview */}
-            <View style={styles.statsGrid}>
+            {/* Stats grid */}
+            <Animated.View
+              entering={FadeInDown.duration(400)}
+              style={styles.statsGrid}
+            >
               <View style={styles.statCard}>
-                <Text style={styles.statNumber}>{stats.totalSessions}</Text>
-                <Text style={styles.statLabel}>Sessions</Text>
+                <Text style={styles.statNum}>{stats.totalSessions}</Text>
+                <Text style={styles.statLabel}>SESSIONS</Text>
               </View>
               <View style={styles.statCard}>
-                <Text style={styles.statNumber}>
-                  {formatDuration(stats.totalTime)}
-                </Text>
-                <Text style={styles.statLabel}>Total Time</Text>
+                <Text style={styles.statNum}>{formatDuration(stats.totalTime)}</Text>
+                <Text style={styles.statLabel}>TOTAL TIME</Text>
               </View>
               <View style={styles.statCard}>
-                <Text style={styles.statNumber}>{stats.streak}🔥</Text>
-                <Text style={styles.statLabel}>Day Streak</Text>
+                <Text style={styles.statNum}>{stats.streak}</Text>
+                <Text style={styles.statLabel}>DAY STREAK</Text>
               </View>
               {mostUsedMood && (
                 <View style={styles.statCard}>
-                  <Text style={styles.statNumber}>{mostUsedMood.emoji}</Text>
-                  <Text style={styles.statLabel}>Top Mood</Text>
+                  <Text style={[
+                    styles.statNum,
+                    { color: (MOOD_ACCENTS[mostUsedMood.id] || {}).accent || COLORS.textPrimary },
+                  ]}>
+                    {mostUsedMood.label}
+                  </Text>
+                  <Text style={styles.statLabel}>TOP MOOD</Text>
                 </View>
               )}
-            </View>
+            </Animated.View>
 
             {/* Mood Distribution */}
             {moodDistribution.length > 0 && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Mood Distribution</Text>
-                <View style={styles.distributionChart}>
-                  {moodDistribution.map((item) => (
-                    <View key={item.mood.id} style={styles.distributionRow}>
-                      <Text style={styles.distributionEmoji}>{item.mood.emoji}</Text>
-                      <View style={styles.distributionBarBg}>
-                        <LinearGradient
-                          colors={item.mood.colors}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 0 }}
+              <Animated.View
+                entering={FadeInDown.delay(150).duration(400)}
+                style={styles.section}
+              >
+                <Text style={styles.sectionLabel}>MOOD DISTRIBUTION</Text>
+                <View style={styles.chart}>
+                  {moodDistribution.map((item) => {
+                    const itemAccent =
+                      MOOD_ACCENTS[item.mood.id] || MOOD_ACCENTS.calm;
+                    return (
+                      <View key={item.mood.id} style={styles.chartRow}>
+                        <View
                           style={[
-                            styles.distributionBarFill,
-                            { width: `${Math.max(item.ratio * 100, 8)}%` },
+                            styles.chartDot,
+                            { backgroundColor: itemAccent.accent },
                           ]}
                         />
+                        <Text style={styles.chartLabel}>{item.mood.label}</Text>
+                        <View style={styles.chartBarBg}>
+                          <View
+                            style={[
+                              styles.chartBarFill,
+                              {
+                                width: `${Math.max(item.ratio * 100, 8)}%`,
+                                backgroundColor: itemAccent.accent,
+                              },
+                            ]}
+                          />
+                        </View>
+                        <Text style={styles.chartCount}>{item.count}</Text>
                       </View>
-                      <Text style={styles.distributionCount}>{item.count}</Text>
-                    </View>
-                  ))}
+                    );
+                  })}
                 </View>
-              </View>
+              </Animated.View>
             )}
 
             {/* Recent Sessions */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Recent Sessions</Text>
+            <Animated.View
+              entering={FadeInDown.delay(250).duration(400)}
+              style={styles.section}
+            >
+              <Text style={styles.sectionLabel}>RECENT SESSIONS</Text>
               {Object.entries(stats.grouped)
                 .slice(0, 7)
                 .map(([date, items]) => (
                   <View key={date} style={styles.dateGroup}>
                     <Text style={styles.dateLabel}>{date}</Text>
                     {items.map((item) => {
-                      const mood = getMoodById(item.moodId);
-                      if (!mood) return null;
+                      const itemMood = getMoodById(item.moodId);
+                      if (!itemMood) return null;
+                      const itemAccent =
+                        MOOD_ACCENTS[itemMood.id] || MOOD_ACCENTS.calm;
                       return (
                         <View key={item.id} style={styles.sessionItem}>
-                          <LinearGradient
-                            colors={mood.colors}
-                            style={styles.sessionDot}
+                          <View
+                            style={[
+                              styles.sessionDot,
+                              { backgroundColor: itemAccent.accent },
+                            ]}
                           />
                           <View style={styles.sessionInfo}>
                             <Text style={styles.sessionMood}>
-                              {mood.emoji} {mood.label}
+                              {itemMood.label}
                             </Text>
                             <Text style={styles.sessionTime}>
-                              {getRelativeTime(item.startTime)} · {formatDuration(item.duration)}
+                              {getRelativeTime(item.startTime)} ·{' '}
+                              {formatDuration(item.duration)}
                             </Text>
                           </View>
                           <View style={styles.intensityBadge}>
@@ -173,7 +206,7 @@ export default function HistoryScreen({ navigation }) {
                     })}
                   </View>
                 ))}
-            </View>
+            </Animated.View>
           </>
         )}
       </ScrollView>
@@ -194,39 +227,37 @@ export default function HistoryScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: COLORS.bg,
   },
   scrollView: {
     flex: 1,
   },
   content: {
     paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.md,
+    paddingTop: SPACING.lg,
   },
   title: {
     color: COLORS.textPrimary,
-    fontSize: FONT_SIZE.xxl,
-    fontWeight: '800',
+    ...TYPE.h1,
   },
   subtitle: {
-    color: COLORS.textTertiary,
-    fontSize: FONT_SIZE.md,
+    color: COLORS.textMuted,
+    ...TYPE.bodySm,
     marginTop: SPACING.xs,
     marginBottom: SPACING.xl,
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: SPACING.xxl * 2,
+    paddingVertical: SPACING['4xl'],
     gap: SPACING.md,
   },
   emptyTitle: {
-    color: COLORS.textPrimary,
-    fontSize: FONT_SIZE.lg,
-    fontWeight: '600',
+    color: COLORS.textSecondary,
+    ...TYPE.h3,
   },
   emptyText: {
-    color: COLORS.textTertiary,
-    fontSize: FONT_SIZE.md,
+    color: COLORS.textMuted,
+    ...TYPE.body,
     textAlign: 'center',
     paddingHorizontal: SPACING.xl,
   },
@@ -239,62 +270,64 @@ const styles = StyleSheet.create({
   statCard: {
     flex: 1,
     minWidth: '45%',
-    backgroundColor: COLORS.surfaceLight,
-    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: COLORS.bgCard,
+    borderRadius: RADIUS.md,
     padding: SPACING.md,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
-  statNumber: {
+  statNum: {
     color: COLORS.textPrimary,
-    fontSize: FONT_SIZE.xl,
-    fontWeight: '700',
+    ...TYPE.h2,
   },
   statLabel: {
-    color: COLORS.textTertiary,
-    fontSize: FONT_SIZE.xs,
+    color: COLORS.textMuted,
+    ...TYPE.caption,
+    letterSpacing: 0.8,
     marginTop: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   section: {
     marginBottom: SPACING.xl,
   },
-  sectionTitle: {
-    color: COLORS.textSecondary,
-    fontSize: FONT_SIZE.sm,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+  sectionLabel: {
+    color: COLORS.textMuted,
+    ...TYPE.label,
     marginBottom: SPACING.md,
   },
-  distributionChart: {
+  chart: {
     gap: SPACING.sm,
   },
-  distributionRow: {
+  chartRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
   },
-  distributionEmoji: {
-    fontSize: 18,
-    width: 28,
-    textAlign: 'center',
+  chartDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
-  distributionBarBg: {
+  chartLabel: {
+    color: COLORS.textSecondary,
+    ...TYPE.bodySm,
+    width: 70,
+  },
+  chartBarBg: {
     flex: 1,
-    height: 24,
-    backgroundColor: COLORS.surfaceLight,
-    borderRadius: BORDER_RADIUS.sm,
+    height: 20,
+    backgroundColor: COLORS.bgCard,
+    borderRadius: RADIUS.sm,
     overflow: 'hidden',
   },
-  distributionBarFill: {
+  chartBarFill: {
     height: '100%',
-    borderRadius: BORDER_RADIUS.sm,
-    opacity: 0.8,
+    borderRadius: RADIUS.sm,
+    opacity: 0.5,
   },
-  distributionCount: {
+  chartCount: {
     color: COLORS.textSecondary,
-    fontSize: FONT_SIZE.sm,
-    fontWeight: '600',
+    ...TYPE.mono,
     width: 28,
     textAlign: 'right',
   },
@@ -302,46 +335,48 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.lg,
   },
   dateLabel: {
-    color: COLORS.textTertiary,
-    fontSize: FONT_SIZE.xs,
+    color: COLORS.textMuted,
+    ...TYPE.caption,
     marginBottom: SPACING.sm,
   },
   sessionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.surfaceLight,
-    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: COLORS.bgCard,
+    borderRadius: RADIUS.md,
     padding: SPACING.md,
     marginBottom: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     gap: SPACING.md,
   },
   sessionDot: {
-    width: 8,
-    height: 32,
-    borderRadius: 4,
+    width: 6,
+    height: 28,
+    borderRadius: 3,
   },
   sessionInfo: {
     flex: 1,
   },
   sessionMood: {
     color: COLORS.textPrimary,
-    fontSize: FONT_SIZE.md,
-    fontWeight: '600',
+    ...TYPE.body,
+    fontWeight: '500',
   },
   sessionTime: {
-    color: COLORS.textTertiary,
-    fontSize: FONT_SIZE.xs,
+    color: COLORS.textMuted,
+    ...TYPE.caption,
     marginTop: 2,
   },
   intensityBadge: {
-    backgroundColor: COLORS.overlayMedium,
+    backgroundColor: COLORS.bgSurface,
     paddingHorizontal: SPACING.sm,
     paddingVertical: SPACING.xs,
-    borderRadius: BORDER_RADIUS.sm,
+    borderRadius: RADIUS.sm,
   },
   intensityText: {
     color: COLORS.textSecondary,
-    fontSize: FONT_SIZE.xs,
+    ...TYPE.caption,
     fontWeight: '600',
   },
 });

@@ -1,7 +1,11 @@
+// ─── TimerPicker v2 ─────────────────────────────────────────────────
+// Atmospheric bottom sheet with blur backdrop
+
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, Platform } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../constants/theme';
+import { COLORS, SPACING, TYPE, RADIUS } from '../constants/theme';
 
 const TIMER_OPTIONS = [
   { label: 'No Timer', value: null, icon: 'infinite-outline' },
@@ -13,7 +17,9 @@ const TIMER_OPTIONS = [
   { label: '2 hours', value: 120, icon: 'timer-outline' },
 ];
 
-export default function TimerPicker({ visible, onClose, onSelect, currentValue }) {
+export default function TimerPicker({ visible, onClose, onSelect, currentValue, accentColor }) {
+  const accent = accentColor || COLORS.textSecondary;
+
   return (
     <Modal
       visible={visible}
@@ -27,48 +33,49 @@ export default function TimerPicker({ visible, onClose, onSelect, currentValue }
         onPress={onClose}
       >
         <View style={styles.sheet}>
+          {/* Handle */}
           <View style={styles.handle} />
-          <Text style={styles.title}>Mood Timer</Text>
-          <Text style={styles.subtitle}>
-            Auto-fade at session end
-          </Text>
 
+          {/* Header */}
+          <Text style={styles.title}>Session Timer</Text>
+          <Text style={styles.subtitle}>Auto-fade when time runs out</Text>
+
+          {/* Options */}
           <View style={styles.options}>
-            {TIMER_OPTIONS.map((option) => (
-              <TouchableOpacity
-                key={String(option.value)}
-                style={[
-                  styles.option,
-                  currentValue === option.value && styles.optionActive,
-                ]}
-                onPress={() => {
-                  onSelect(option.value);
-                  onClose();
-                }}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name={option.icon}
-                  size={20}
-                  color={
-                    currentValue === option.value
-                      ? COLORS.accent
-                      : COLORS.textSecondary
-                  }
-                />
-                <Text
+            {TIMER_OPTIONS.map((option) => {
+              const isSelected = currentValue === option.value;
+              return (
+                <TouchableOpacity
+                  key={String(option.value)}
                   style={[
-                    styles.optionText,
-                    currentValue === option.value && styles.optionTextActive,
+                    styles.option,
+                    isSelected && [styles.optionActive, { borderColor: accent + '40' }],
                   ]}
+                  onPress={() => {
+                    onSelect(option.value);
+                    onClose();
+                  }}
+                  activeOpacity={0.6}
                 >
-                  {option.label}
-                </Text>
-                {currentValue === option.value && (
-                  <Ionicons name="checkmark" size={18} color={COLORS.accent} />
-                )}
-              </TouchableOpacity>
-            ))}
+                  <Ionicons
+                    name={option.icon}
+                    size={18}
+                    color={isSelected ? accent : COLORS.textMuted}
+                  />
+                  <Text
+                    style={[
+                      styles.optionText,
+                      isSelected && { color: COLORS.textPrimary },
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                  {isSelected && (
+                    <Ionicons name="checkmark" size={16} color={accent} />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
       </TouchableOpacity>
@@ -83,30 +90,32 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: COLORS.surface,
-    borderTopLeftRadius: BORDER_RADIUS.xl,
-    borderTopRightRadius: BORDER_RADIUS.xl,
+    backgroundColor: COLORS.bgElevated,
+    borderTopLeftRadius: RADIUS.xl,
+    borderTopRightRadius: RADIUS.xl,
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.md,
-    paddingBottom: SPACING.xxl,
+    paddingBottom: SPACING['3xl'],
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    borderColor: COLORS.borderLight,
   },
   handle: {
-    width: 40,
+    width: 36,
     height: 4,
-    backgroundColor: COLORS.textTertiary,
+    backgroundColor: COLORS.textGhost,
     borderRadius: 2,
     alignSelf: 'center',
     marginBottom: SPACING.lg,
   },
   title: {
     color: COLORS.textPrimary,
-    fontSize: FONT_SIZE.xl,
-    fontWeight: '700',
+    ...TYPE.h2,
     textAlign: 'center',
   },
   subtitle: {
-    color: COLORS.textTertiary,
-    fontSize: FONT_SIZE.sm,
+    color: COLORS.textMuted,
+    ...TYPE.bodySm,
     textAlign: 'center',
     marginTop: SPACING.xs,
     marginBottom: SPACING.lg,
@@ -119,22 +128,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.md,
-    borderRadius: BORDER_RADIUS.md,
-    backgroundColor: COLORS.overlayLight,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.bgSurface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     gap: SPACING.md,
   },
   optionActive: {
-    backgroundColor: 'rgba(124, 77, 255, 0.15)',
-    borderWidth: 1,
-    borderColor: COLORS.accent,
+    backgroundColor: COLORS.bgCard,
   },
   optionText: {
     color: COLORS.textSecondary,
-    fontSize: FONT_SIZE.md,
-    fontWeight: '500',
+    ...TYPE.body,
     flex: 1,
-  },
-  optionTextActive: {
-    color: COLORS.textPrimary,
   },
 });

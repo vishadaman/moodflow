@@ -1,10 +1,13 @@
+// ─── AppNavigator v2 ────────────────────────────────────────────────
+// Dark atmospheric tab bar with subtle border, no loud accents
+
 import React from 'react';
-import { Platform, StyleSheet } from 'react-native';
+import { Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../constants/theme';
+import { COLORS, SPACING } from '../constants/theme';
 
 import HomeScreen from '../screens/HomeScreen';
 import PlayerScreen from '../screens/PlayerScreen';
@@ -20,18 +23,19 @@ function HomeTabs() {
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: COLORS.surface,
-          borderTopColor: COLORS.overlayLight,
+          backgroundColor: COLORS.bgElevated,
+          borderTopColor: COLORS.border,
           borderTopWidth: 1,
           height: Platform.OS === 'ios' ? 88 : 64,
           paddingTop: 8,
           paddingBottom: Platform.OS === 'ios' ? 28 : 8,
         },
-        tabBarActiveTintColor: COLORS.accent,
-        tabBarInactiveTintColor: COLORS.textTertiary,
+        tabBarActiveTintColor: COLORS.textPrimary,
+        tabBarInactiveTintColor: COLORS.textMuted,
         tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
+          fontSize: 10,
+          fontWeight: '500',
+          letterSpacing: 0.5,
         },
         tabBarIcon: ({ color, size }) => {
           let iconName;
@@ -48,7 +52,7 @@ function HomeTabs() {
             default:
               iconName = 'ellipse-outline';
           }
-          return <Ionicons name={iconName} size={size} color={color} />;
+          return <Ionicons name={iconName} size={size - 2} color={color} />;
         },
       })}
     >
@@ -77,7 +81,7 @@ export default function AppNavigator() {
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
-          cardStyle: { backgroundColor: COLORS.background },
+          cardStyle: { backgroundColor: COLORS.bg },
           presentation: 'modal',
         }}
       >

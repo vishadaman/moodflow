@@ -1,8 +1,10 @@
+// ─── PlayerControls v2 ──────────────────────────────────────────────
+// Minimal, atmospheric player controls with accent glow
+
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS, SHADOWS } from '../constants/theme';
+import { COLORS, MOOD_ACCENTS, SPACING, TYPE, RADIUS, SHADOWS } from '../constants/theme';
 import { formatTime } from '../utils/helpers';
 
 export default function PlayerControls({
@@ -17,109 +19,99 @@ export default function PlayerControls({
 }) {
   if (!mood) return null;
 
+  const accent = MOOD_ACCENTS[mood.id] || MOOD_ACCENTS.calm;
+
   return (
     <View style={styles.container}>
-      {/* Now Playing Info */}
-      <LinearGradient
-        colors={[...mood.colors, 'transparent']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.nowPlaying}
-      >
-        <Text style={styles.emoji}>{mood.emoji}</Text>
+      {/* Now Playing strip */}
+      <View style={styles.nowPlaying}>
+        <View style={[styles.moodDot, { backgroundColor: accent.accent }]} />
         <View style={styles.info}>
           <Text style={styles.moodLabel}>{mood.label}</Text>
           <Text style={styles.genre}>{mood.genre}</Text>
         </View>
         {timerRemaining !== null && (
           <View style={styles.timer}>
-            <Ionicons name="timer-outline" size={14} color={COLORS.textSecondary} />
-            <Text style={styles.timerText}>{formatTime(timerRemaining)}</Text>
+            <Ionicons name="timer-outline" size={13} color={accent.accent} />
+            <Text style={[styles.timerText, { color: accent.accent }]}>
+              {formatTime(timerRemaining)}
+            </Text>
           </View>
         )}
-      </LinearGradient>
+      </View>
 
-      {/* Visualizer bar (animated dots) */}
+      {/* Visualizer */}
       <View style={styles.visualizer}>
-        {Array.from({ length: 20 }).map((_, i) => (
+        {Array.from({ length: 24 }).map((_, i) => (
           <View
             key={i}
             style={[
-              styles.visualizerBar,
+              styles.vizBar,
               {
-                height: isPlaying
-                  ? 4 + Math.random() * 20
-                  : 4,
-                backgroundColor: mood.accentColor || COLORS.accent,
-                opacity: isPlaying ? 0.4 + Math.random() * 0.6 : 0.2,
+                height: isPlaying ? 3 + Math.random() * 18 : 3,
+                backgroundColor: accent.accent,
+                opacity: isPlaying ? 0.25 + Math.random() * 0.5 : 0.08,
               },
             ]}
           />
         ))}
       </View>
 
-      {/* Control buttons */}
+      {/* Controls */}
       {!focusLock ? (
         <View style={styles.controls}>
           <TouchableOpacity
-            style={styles.controlButton}
+            style={styles.secondaryBtn}
             onPress={onShiftMood}
-            activeOpacity={0.7}
+            activeOpacity={0.6}
           >
-            <Ionicons name="swap-horizontal" size={22} color={COLORS.textSecondary} />
-            <Text style={styles.controlLabel}>Shift</Text>
+            <Ionicons name="swap-horizontal" size={20} color={COLORS.textSecondary} />
+            <Text style={styles.secondaryLabel}>Shift</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.playButton, { backgroundColor: mood.accentColor || COLORS.accent }]}
+          <Pressable
             onPress={onTogglePlay}
-            activeOpacity={0.7}
+            style={({ pressed }) => [
+              styles.playButton,
+              { backgroundColor: accent.accent },
+              SHADOWS.glow(accent.accent),
+              pressed && { opacity: 0.85, transform: [{ scale: 0.95 }] },
+            ]}
           >
-            <Ionicons
-              name={isPlaying ? 'pause' : 'play'}
-              size={32}
-              color="#fff"
-            />
-          </TouchableOpacity>
+            <Ionicons name={isPlaying ? 'pause' : 'play'} size={28} color="#fff" />
+          </Pressable>
 
           <TouchableOpacity
-            style={styles.controlButton}
+            style={styles.secondaryBtn}
             onPress={onStop}
-            activeOpacity={0.7}
+            activeOpacity={0.6}
           >
-            <Ionicons name="stop-circle-outline" size={22} color={COLORS.textSecondary} />
-            <Text style={styles.controlLabel}>End</Text>
+            <Ionicons name="stop-circle-outline" size={20} color={COLORS.textSecondary} />
+            <Text style={styles.secondaryLabel}>End</Text>
           </TouchableOpacity>
         </View>
       ) : (
-        /* Focus Lock mode: only a stop button */
-        <View style={styles.focusLockControls}>
+        <View style={styles.focusControls}>
           <TouchableOpacity
-            style={[styles.focusStopButton, { borderColor: mood.accentColor }]}
+            style={[styles.focusStopBtn, { borderColor: accent.accent + '40' }]}
             onPress={onStop}
-            activeOpacity={0.7}
+            activeOpacity={0.6}
           >
-            <Ionicons name="stop" size={28} color={mood.accentColor} />
+            <Ionicons name="stop" size={24} color={accent.accent} />
           </TouchableOpacity>
         </View>
       )}
 
-      {/* Bottom row: Focus Lock toggle */}
+      {/* Focus Lock chip */}
       {!focusLock && (
         <View style={styles.bottomRow}>
           <TouchableOpacity
-            style={[styles.featureChip, focusLock && styles.featureChipActive]}
+            style={styles.chip}
             onPress={onToggleFocusLock}
-            activeOpacity={0.7}
+            activeOpacity={0.6}
           >
-            <Ionicons
-              name="lock-closed-outline"
-              size={14}
-              color={focusLock ? COLORS.textPrimary : COLORS.textTertiary}
-            />
-            <Text style={[styles.featureChipText, focusLock && styles.featureChipTextActive]}>
-              Focus Lock
-            </Text>
+            <Ionicons name="lock-closed-outline" size={13} color={COLORS.textMuted} />
+            <Text style={styles.chipText}>Focus Lock</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -129,21 +121,26 @@ export default function PlayerControls({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.xl,
-    overflow: 'hidden',
+    backgroundColor: COLORS.bgCard,
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     marginHorizontal: SPACING.md,
     marginBottom: SPACING.md,
-    ...SHADOWS.large,
+    overflow: 'hidden',
+    ...SHADOWS.soft,
   },
   nowPlaying: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: SPACING.lg,
-    paddingBottom: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.lg,
+    paddingBottom: SPACING.sm,
   },
-  emoji: {
-    fontSize: 42,
+  moodDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     marginRight: SPACING.md,
   },
   info: {
@@ -151,101 +148,90 @@ const styles = StyleSheet.create({
   },
   moodLabel: {
     color: COLORS.textPrimary,
-    fontSize: FONT_SIZE.xl,
-    fontWeight: '700',
+    ...TYPE.h3,
   },
   genre: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: FONT_SIZE.sm,
+    color: COLORS.textMuted,
+    ...TYPE.bodySm,
     marginTop: 2,
   },
   timer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.overlayMedium,
+    backgroundColor: COLORS.bgSurface,
     paddingHorizontal: SPACING.sm,
     paddingVertical: SPACING.xs,
-    borderRadius: BORDER_RADIUS.sm,
+    borderRadius: RADIUS.sm,
+    gap: 4,
   },
   timerText: {
-    color: COLORS.textSecondary,
-    fontSize: FONT_SIZE.sm,
-    fontWeight: '600',
-    marginLeft: 4,
-    fontVariant: ['tabular-nums'],
+    ...TYPE.mono,
   },
   visualizer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'center',
-    height: 28,
+    height: 24,
     paddingHorizontal: SPACING.lg,
-    gap: 3,
+    gap: 2,
   },
-  visualizerBar: {
-    width: 3,
-    borderRadius: 2,
+  vizBar: {
+    width: 2,
+    borderRadius: 1,
   },
   controls: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: SPACING.lg,
-    gap: SPACING.xl,
+    gap: SPACING['2xl'],
   },
-  controlButton: {
+  secondaryBtn: {
     alignItems: 'center',
     gap: 4,
   },
-  controlLabel: {
-    color: COLORS.textTertiary,
-    fontSize: FONT_SIZE.xs,
+  secondaryLabel: {
+    color: COLORS.textMuted,
+    ...TYPE.caption,
   },
   playButton: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...SHADOWS.medium,
-  },
-  focusLockControls: {
-    alignItems: 'center',
-    paddingVertical: SPACING.xl,
-  },
-  focusStopButton: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.overlayLight,
+  },
+  focusControls: {
+    alignItems: 'center',
+    paddingVertical: SPACING.xl,
+  },
+  focusStopBtn: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.bgSurface,
   },
   bottomRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     paddingBottom: SPACING.md,
-    gap: SPACING.sm,
   },
-  featureChip: {
+  chip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs + 2,
-    borderRadius: BORDER_RADIUS.round,
-    backgroundColor: COLORS.overlayLight,
+    paddingVertical: 6,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.bgSurface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
-  featureChipActive: {
-    backgroundColor: COLORS.accent,
-  },
-  featureChipText: {
-    color: COLORS.textTertiary,
-    fontSize: FONT_SIZE.xs,
-    fontWeight: '500',
-  },
-  featureChipTextActive: {
-    color: COLORS.textPrimary,
+  chipText: {
+    color: COLORS.textMuted,
+    ...TYPE.caption,
   },
 });

@@ -1,3 +1,6 @@
+// ─── HomeScreen v2 ──────────────────────────────────────────────────
+// Cinematic mood selection — large quiet heading, atmospheric card grid
+
 import React, { useCallback } from 'react';
 import {
   View,
@@ -5,12 +8,11 @@ import {
   StyleSheet,
   ScrollView,
   StatusBar,
-  TouchableOpacity,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MOODS } from '../constants/moods';
-import { COLORS, SPACING, FONT_SIZE } from '../constants/theme';
+import { COLORS, SPACING, TYPE, RADIUS, MOOD_ACCENTS } from '../constants/theme';
 import { useMood } from '../context/MoodContext';
 import { useAudio } from '../context/AudioContext';
 import MoodCard from '../components/MoodCard';
@@ -21,15 +23,18 @@ export default function HomeScreen({ navigation }) {
   const { state, dispatch } = useMood();
   const { loadMood, play, pause } = useAudio();
 
-  const handleMoodSelect = useCallback(async (mood) => {
-    dispatch({ type: 'SET_MOOD', payload: mood });
-    try {
-      await loadMood(mood.id, state.intensity);
-    } catch (e) {
-      console.warn('Audio playback unavailable:', e);
-    }
-    navigation.navigate('Player');
-  }, [loadMood, state.intensity, dispatch, navigation]);
+  const handleMoodSelect = useCallback(
+    async (mood) => {
+      dispatch({ type: 'SET_MOOD', payload: mood });
+      try {
+        await loadMood(mood.id, state.intensity);
+      } catch (e) {
+        console.warn('Audio playback unavailable:', e);
+      }
+      navigation.navigate('Player');
+    },
+    [loadMood, state.intensity, dispatch, navigation],
+  );
 
   const handleTogglePlay = useCallback(async () => {
     const wasPlaying = state.isPlaying;
@@ -46,69 +51,65 @@ export default function HomeScreen({ navigation }) {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
 
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: state.currentMood ? 140 : 80 },
+          { paddingBottom: state.currentMood ? 150 : 90 },
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>{greeting}</Text>
-            <Text style={styles.title}>How are you feeling?</Text>
-          </View>
-          <TouchableOpacity
-            style={styles.timerButton}
-            onPress={() => {
-              if (state.currentMood) navigation.navigate('Player');
-            }}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="musical-notes-outline" size={22} color={COLORS.textSecondary} />
-          </TouchableOpacity>
-        </View>
+        {/* Hero heading */}
+        <Animated.View entering={FadeIn.duration(600)} style={styles.hero}>
+          <Text style={styles.greeting}>{greeting}</Text>
+          <Text style={styles.title}>How are you{'\n'}feeling?</Text>
+        </Animated.View>
 
-        {/* Tagline */}
-        <Text style={styles.tagline}>
-          One tap. Right tone. Stay in flow.
-        </Text>
+        {/* Mood description */}
+        <Animated.Text
+          entering={FadeInDown.delay(200).duration(500)}
+          style={styles.tagline}
+        >
+          Choose a mood. We handle the rest.
+        </Animated.Text>
 
         {/* Mood Grid */}
         <View style={styles.moodGrid}>
-          {MOODS.map((mood) => (
+          {MOODS.map((mood, i) => (
             <MoodCard
               key={mood.id}
               mood={mood}
               onPress={handleMoodSelect}
               isActive={state.currentMood?.id === mood.id}
+              index={i}
             />
           ))}
         </View>
 
-        {/* Quick Stats */}
+        {/* Quick stats */}
         {state.history.length > 0 && (
-          <View style={styles.quickStats}>
-            <Text style={styles.sectionTitle}>Your Flow</Text>
+          <Animated.View
+            entering={FadeInDown.delay(400).duration(500)}
+            style={styles.statsSection}
+          >
+            <Text style={styles.sectionLabel}>YOUR FLOW</Text>
             <View style={styles.statsRow}>
               <View style={styles.statCard}>
-                <Text style={styles.statNumber}>{state.history.length}</Text>
+                <Text style={styles.statNum}>{state.history.length}</Text>
                 <Text style={styles.statLabel}>Sessions</Text>
               </View>
               <View style={styles.statCard}>
-                <Text style={styles.statNumber}>
+                <Text style={styles.statNum}>
                   {Math.round(
-                    state.history.reduce((s, h) => s + (h.duration || 0), 0) / 60
+                    state.history.reduce((s, h) => s + (h.duration || 0), 0) / 60,
                   )}m
                 </Text>
                 <Text style={styles.statLabel}>Total Time</Text>
               </View>
             </View>
-          </View>
+          </Animated.View>
         )}
       </ScrollView>
 
@@ -136,61 +137,46 @@ function getGreeting() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: COLORS.bg,
   },
   scrollView: {
     flex: 1,
   },
   content: {
     paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.md,
+    paddingTop: SPACING.lg,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+  hero: {
     marginBottom: SPACING.sm,
   },
   greeting: {
-    color: COLORS.textTertiary,
-    fontSize: FONT_SIZE.sm,
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
+    color: COLORS.textMuted,
+    ...TYPE.label,
+    marginBottom: SPACING.sm,
   },
   title: {
     color: COLORS.textPrimary,
-    fontSize: FONT_SIZE.xxl,
-    fontWeight: '800',
-    marginTop: SPACING.xs,
-  },
-  timerButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: COLORS.surfaceLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: SPACING.sm,
+    ...TYPE.hero,
   },
   tagline: {
-    color: COLORS.textTertiary,
-    fontSize: FONT_SIZE.md,
+    color: COLORS.textMuted,
+    ...TYPE.body,
     marginBottom: SPACING.xl,
-    fontStyle: 'italic',
   },
   moodGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
   },
-  quickStats: {
+  statsSection: {
     marginTop: SPACING.xl,
+    paddingTop: SPACING.lg,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
   },
-  sectionTitle: {
-    color: COLORS.textSecondary,
-    fontSize: FONT_SIZE.sm,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+  sectionLabel: {
+    color: COLORS.textMuted,
+    ...TYPE.label,
     marginBottom: SPACING.md,
   },
   statsRow: {
@@ -199,19 +185,20 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: COLORS.surfaceLight,
-    borderRadius: 12,
+    backgroundColor: COLORS.bgCard,
+    borderRadius: RADIUS.md,
     padding: SPACING.md,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
-  statNumber: {
+  statNum: {
     color: COLORS.textPrimary,
-    fontSize: FONT_SIZE.xl,
-    fontWeight: '700',
+    ...TYPE.h2,
   },
   statLabel: {
-    color: COLORS.textTertiary,
-    fontSize: FONT_SIZE.xs,
+    color: COLORS.textMuted,
+    ...TYPE.caption,
     marginTop: 4,
   },
 });
